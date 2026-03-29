@@ -109,7 +109,41 @@ app.post("/api/monitors", (req, res) => {
   });
 });
 
-// Start the Express server
+app.post("/api/incident", (req, res) => {
+  if (!isKumaReady) {
+    return res
+      .status(503)
+      .json({ error: "Not connected to Uptime Kuma socket yet." });
+  }
+
+  const { title, content, style, statusPageId } = req.body;
+
+  if (!title || !content || !statusPageId) {
+    return res
+      .status(400)
+      .json({ error: "Missing required fields: title, content, statusPageId" });
+  }
+
+  const incident = {
+    title,
+    content,
+    style: style || "primary", // primary | warning | danger | info
+  };
+
+  // ✅ Correct event for status page incidents
+  socket.emit("postIncident", statusPageId, incident, (kumaRes) => {
+    console.log("Kuma response:", kumaRes);
+
+    if (kumaRes?.ok) {
+      return res
+        .status(201)
+        .json({ success: true, incident: kumaRes.incident });
+    } else {
+      return res.status(500).json({ success: false, error: kumaRes?.msg });
+    }
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 Express REST API running on http://localhost:${PORT}`);
 });
